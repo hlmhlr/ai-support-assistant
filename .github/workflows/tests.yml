@@ -1,0 +1,22 @@
+# Runs the tests on GitHub's servers on every push and pull request.
+# The tests use fake models, so no Ollama or GPU is needed.
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false              # finish both systems even if one fails
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7       # download the repository
+      - uses: astral-sh/setup-uv@v7     # install uv (and cache downloads)
+        with:
+          python-version: "3.12"
+      - run: uv sync --locked           # install from uv.lock; fail if it's out of date
+      - run: uv run pytest -v           # run the tests
