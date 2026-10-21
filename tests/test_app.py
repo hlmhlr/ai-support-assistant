@@ -129,3 +129,50 @@ def test_unexpected_error_gets_500_without_internal_details():
 
     assert reply.status_code == 500
     assert "secret internal detail" not in reply.text
+
+
+# --- /compare: one message, every model ---
+
+
+def test_compare_returns_one_result_per_model_in_order():
+    called = []
+
+    def responder(model, message):
+        called.append(model)
+        return ANSWER
+
+    reply = client_with(responder).post("/compare", json={"message": "Charged twice"})
+
+    assert reply.status_code == 200
+    results = reply.get_json()["results"]
+    assert [result["model"] for result in results] == ["granite", "llama", "mistral"]
+    assert called == ["granite", "llama", "mistral"]
+    assert all(result["status"] == 200 for result in results)
+
+
+def test_compare_keeps_other_answers_when_one_model_fails():
+    def responder(model, message):
+        if model == "llama":
+            raise StructuredOutputError("llama", "the answer was not valid JSON", "oops")
+        return ANSWER
+
+    reply = client_with(responder).post("/compare", json={"message": "Charged twice"})
+
+    assert reply.status_code == 200
+    statuses = {result["model"]: result["status"] for result in reply.get_json()["results"]}
+    assert statuses == {"granite": 200, "llama": 422, "mistral": 200}
+
+
+def test_compare_fails_as_a_whole_when_ollama_is_down():
+    reply = client_with(raising(httpx.ConnectError("refused"))).post(
+        "/compare", json={"message": "Charged twice"}
+    )
+
+    assert reply.status_code == 503
+    assert "Ollama" in reply.get_json()["error"]
+
+
+def test_compare_needs_a_message_but_no_model():
+    client = client_with(lambda model, message: ANSWER)
+    assert client.post("/compare", json={"message": " "}).status_code == 400
+    assert client.post("/compare", json={"message": "Hi"}).status_code == 200

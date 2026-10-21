@@ -2,7 +2,8 @@
 
 Replaces the lab's `app.py`. GET / serves the page. POST /generate takes a
 customer message and a model name and returns the summary, sentiment, reply
-and next action.
+and next action. POST /compare sends one message to every model, for the
+lab's "choosing the right model" step.
 
 Changes from the lab:
 - One status code per kind of problem, so the caller knows what went wrong:
@@ -43,49 +44,80 @@ def create_app(responder=get_structured_response) -> Flask:
         # The page lists the models from config, so a new model appears automatically.
         return render_template("index.html", models=MODELS)
 
-
-
-    @app.post("/generate")
-    def generate():
+    def read_request(need_model: bool):
+        """Check the JSON body. Returns (message, model, None) or (None, None, error)."""
         # silent=True returns None instead of raising when the body isn't JSON.
         data = request.get_json(silent=True)
         if not isinstance(data, dict):
-            return error("Send a JSON body with 'message' and 'model'.", 400)
+            return None, None, error("Send a JSON body with 'message' and 'model'.", 400)
 
         message = data.get("message")
         model = data.get("model")
-        if not isinstance(message, str) or not message.strip() or not model:
-            return error("Missing message or model selection.", 400)
-        if model not in MODELS:
-            return error(f"Unknown model {model!r}. Choose one of: {', '.join(MODELS)}.", 400)
+        if not isinstance(message, str) or not message.strip() or (need_model and not model):
+            return None, None, error("Missing message or model selection.", 400)
+        if need_model and model not in MODELS:
+            choices = ", ".join(MODELS)
+            return None, None, error(f"Unknown model {model!r}. Choose one of: {choices}.", 400)
         if len(message) > MAX_MESSAGE_LENGTH:
-            return error(f"Message is longer than {MAX_MESSAGE_LENGTH} characters.", 400)
+            return None, None, error(f"Message is longer than {MAX_MESSAGE_LENGTH} characters.", 400)
+        return message.strip(), model, None
 
+    def run_model(model: str, message: str) -> tuple[dict, int]:
+        """Call one model and turn every outcome into (JSON body, HTTP status)."""
         start = time.perf_counter()
         try:
-            result = responder(model, message.strip())
+            result = responder(model, message)
         except StructuredOutputError as exc:
             # The model answered, but not in a usable form, even after a retry.
-            return error(str(exc), 422, problem=exc.problem)
+            return {"error": str(exc), "problem": exc.problem}, 422
         except (httpx.TransportError, ConnectionError):
             # LangChain raises httpx errors, the plain ollama client ConnectionError.
-            return error("Can't reach Ollama. Start the Ollama app and try again.", 503)
+            return {"error": "Can't reach Ollama. Start the Ollama app and try again."}, 503
         except ollama.ResponseError as exc:
             if exc.status_code == 404:
-                return error(f"Model not downloaded. Run: ollama pull {MODELS[model]}", 503)
+                return {"error": f"Model not downloaded. Run: ollama pull {MODELS[model]}"}, 503
             app.logger.exception("Ollama returned an error")
-            return error("Ollama returned an error. See the server log.", 503)
+            return {"error": "Ollama returned an error. See the server log."}, 503
         except Exception:
-            app.logger.exception("Unexpected error in /generate")
-            return error("Something went wrong. See the server log.", 500)
+            app.logger.exception("Unexpected error while calling %s", model)
+            return {"error": "Something went wrong. See the server log."}, 500
 
-        return jsonify(
-            {
-                **result.model_dump(),
-                "model": model,
-                "duration": round(time.perf_counter() - start, 2),  # seconds, as in the lab
-            }
-        )
+        body = {
+            **result.model_dump(),
+            "model": model,
+            "duration": round(time.perf_counter() - start, 2),  # seconds, as in the lab
+        }
+        return body, 200
+
+    @app.post("/generate")
+    def generate():
+        message, model, problem = read_request(need_model=True)
+        if problem:
+            return problem
+        body, status = run_model(model, message)
+        return jsonify(body), status
+
+    @app.post("/compare")
+    def compare():
+        """Send one message to every model, one after another, and return all answers.
+
+        One model failing (e.g. an unusable answer) doesn't hide the others:
+        each result carries its own status. Only when every model fails on the
+        server side (Ollama down) does the whole request fail.
+        """
+        message, _, problem = read_request(need_model=False)
+        if problem:
+            return problem
+
+        results = []
+        for model in MODELS:
+            body, status = run_model(model, message)
+            results.append({"model": model, "status": status, **body})
+
+        if all(result["status"] >= 500 for result in results):
+            first = results[0]
+            return jsonify({"error": first["error"]}), first["status"]
+        return jsonify({"results": results})
 
     return app
 

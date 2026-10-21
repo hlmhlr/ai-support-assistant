@@ -18,9 +18,9 @@ const $ = (id) => document.getElementById(id);
 const form = $("ticket-form");
 const message = $("message");
 
-// Show exactly one of: empty hint, loading text, error box, result.
+// Show exactly one of: empty hint, loading text, error box, result, comparison.
 function show(state) {
-  for (const id of ["empty", "loading", "error", "result"]) {
+  for (const id of ["empty", "loading", "error", "result", "comparison"]) {
     $(id).hidden = id !== state;
   }
 }
@@ -44,37 +44,93 @@ function showResult(data) {
   show("result");
 }
 
+// Small helper: create an element with a class and text (never HTML).
+function el(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+
+const capitalize = (name) => name[0].toUpperCase() + name.slice(1);
+
+function showComparison(results) {
+  const box = $("comparison");
+  box.replaceChildren();
+  for (const item of results) {
+    const card = el("article", "card");
+    const head = el("div", "row between");
+    head.append(el("h3", "", capitalize(item.model)));
+
+    if (item.status === 200) {
+      const style = sentimentStyle(item.sentiment);
+      const badge = el("span", "badge", `${item.sentiment} · ${style.label}`);
+      badge.style.background = style.color;
+      head.append(badge);
+      card.append(
+        head,
+        el("p", "muted", `${item.summary} (${item.duration} s)`),
+        el("p", "reply", item.response),
+        el("p", "action", item.next_action),
+      );
+    } else {
+      card.append(head, el("p", "alert", item.error));
+    }
+    box.append(card);
+  }
+  show("comparison");
+}
+
 function showError(text) {
   $("error").textContent = text;
   show("error");
 }
 
-async function analyze(event) {
-  event.preventDefault();
-  const model = form.elements.model.value;
-  const button = $("submit");
-
-  button.disabled = true;
-  $("loading").textContent = `${model[0].toUpperCase() + model.slice(1)} is reading the message…`;
+// POST a JSON body and show the answer with `onSuccess`, or the error text.
+async function send(url, body, loadingText, onSuccess) {
+  const buttons = [$("submit"), $("compare-button")];
+  buttons.forEach((button) => (button.disabled = true));
+  $("loading").textContent = loadingText;
   show("loading");
 
   try {
-    const reply = await fetch("/generate", {
+    const reply = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: message.value, model }),
+      body: JSON.stringify(body),
     });
     const data = await reply.json();
     if (reply.ok) {
-      showResult(data);
+      onSuccess(data);
     } else {
       showError(data.error || `Request failed (${reply.status}).`);
     }
   } catch {
     showError("Can't reach the app. Is the Flask server still running?");
   } finally {
-    button.disabled = false;
+    buttons.forEach((button) => (button.disabled = false));
   }
+}
+
+function analyze(event) {
+  event.preventDefault();
+  const model = form.elements.model.value;
+  send(
+    "/generate",
+    { message: message.value, model },
+    `${capitalize(model)} is reading the message…`,
+    showResult,
+  );
+}
+
+function compareAll() {
+  if (!form.reportValidity()) return; // same "message required" check as Analyze
+  send(
+    "/compare",
+    { message: message.value },
+    "Every model is reading the message, one after another…",
+    (data) => showComparison(data.results),
+  );
 }
 
 function updateCounter() {
@@ -82,6 +138,7 @@ function updateCounter() {
 }
 
 form.addEventListener("submit", analyze);
+$("compare-button").addEventListener("click", compareAll);
 message.addEventListener("input", updateCounter);
 
 // Ctrl + Enter (Cmd + Enter on Mac) submits the form.

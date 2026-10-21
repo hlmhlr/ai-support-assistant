@@ -41,8 +41,10 @@
         </fieldset>
 
         <button id="submit" type="submit" class="primary">Analyze message</button>
+        <button id="compare-button" type="button" class="secondary">Compare all models</button>
         <p class="muted hint">Ctrl + Enter also works. The first request to a model
-          takes longer while it loads into memory.</p>
+          takes longer while it loads into memory; comparing runs the models one
+          after another.</p>
       </form>
     </section>
 
@@ -77,6 +79,9 @@
 
         <p id="meta" class="muted"></p>
       </div>
+
+      <!-- One card per model, filled in by app.js -->
+      <div id="comparison" class="cards" hidden></div>
     </section>
   </main>
 

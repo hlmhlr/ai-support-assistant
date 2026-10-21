@@ -131,7 +131,20 @@ textarea {
   font-weight: 600;
   cursor: pointer;
 }
-.primary:disabled { opacity: 0.6; cursor: wait; }
+.primary:disabled, .secondary:disabled { opacity: 0.6; cursor: wait; }
+
+.secondary {
+  width: 100%;
+  margin-top: 0.5rem;
+  padding: 0.6rem;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
 
 .link {
   border: 0;
@@ -192,4 +205,23 @@ blockquote {
   height: 1px;
   overflow: hidden;
   clip: rect(0 0 0 0);
+}
+
+/* Comparison: one compact card per model. */
+.cards { display: grid; gap: 0.75rem; }
+.card {
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.card h3 { margin: 0; font-size: 1rem; }
+.card p { margin: 0.4rem 0 0; }
+.card .reply { padding-left: 0.6rem; border-left: 3px solid var(--accent); }
+.card .action { margin-top: 0.5rem; padding: 0.4rem 0.6rem; }
+.badge {
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  color: #ffffff;
+  font-size: 0.8rem;
+  font-weight: 600;
 }
