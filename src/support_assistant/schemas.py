@@ -26,7 +26,10 @@ class AIResponse(BaseModel):
     sentiment: int = Field(
         ge=0,
         le=100,
-        description="Sentiment score from 0 (very negative) to 100 (very positive)",
+        description=(
+            "Sentiment score from 0 to 100: 0-34 negative (complaint, anger), "
+            "35-65 neutral or mixed (question, request), 66-100 positive (praise, thanks)"
+        ),
     )
     response: str = Field(min_length=1, description="Reply to send to the customer")
 

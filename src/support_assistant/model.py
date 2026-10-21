@@ -31,8 +31,8 @@ from support_assistant.templates import TEMPLATES
 # Turns the model's text answer into a Python dict, as in the lab.
 json_parser = JsonOutputParser(pydantic_object=AIResponse)
 
-# Instructions for the support task. The rules come from the replies in
-# script 04: promises, claimed actions and placeholders.
+# Instructions for the support task. Each rule fixes a problem seen in the
+# answers to scripts 04 and 05 and is measured by the scorecard (script 06).
 SUPPORT_SYSTEM_PROMPT = """You are an AI assistant helping a customer support team.
 Read the customer's message and fill in every field.
 Rules for the reply to the customer:
@@ -40,7 +40,14 @@ Rules for the reply to the customer:
 - Do not promise refunds, replacements or compensation.
 - Do not say that you have already done something.
 - Do not use placeholders such as [Name].
-Put what the support team must do in next_action, not in the reply."""
+- Do not ask for details the customer already gave, such as an order or tracking number.
+- Do not state facts about products, prices or policies: you don't have that
+  information. Say that the team will check and reply.
+- Do not tell the customer to contact customer support: this is customer support.
+Rules for next_action:
+- Put what the support team must do here, not in the reply.
+- Write one concrete step for the support team.
+- Include every order or tracking number from the customer's message."""
 
 # A JSON answer with four fields is longer than a plain reply, and an answer
 # cut off by the token limit is not valid JSON. 512 leaves room for both.
