@@ -152,3 +152,4 @@ def get_structured_response(
             "Answer again with only the JSON object, with every field filled in."
         )
 
+    raise StructuredOutputError(name, problem, raw_output)

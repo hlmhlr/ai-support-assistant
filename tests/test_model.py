@@ -7,7 +7,6 @@ records the exact prompt the model would receive.
 import json
 
 import pytest
-
 from langchain_core.language_models import FakeListLLM
 from langchain_core.runnables import RunnableLambda
 
@@ -42,7 +41,6 @@ def test_model_is_called_in_raw_mode_with_greedy_decoding():
     assert model.bound.model == MODELS["llama"]  # the tag set in config or .env
     assert model.bound.temperature == 0.0
     assert model.bound.num_predict == 100
-
 
 
 # --- Structured output: template | model | json_parser, checked by AIResponse ---
@@ -102,4 +100,3 @@ def test_error_after_two_bad_answers_keeps_the_raw_output():
 
     assert caught.value.problem == "the answer was not valid JSON"
     assert caught.value.raw_output == "Still no JSON."
-
