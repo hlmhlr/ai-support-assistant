@@ -692,6 +692,7 @@ dependencies = [
     { name = "langchain-core" },
     { name = "langchain-ollama" },
     { name = "ollama" },
+    { name = "pydantic" },
     { name = "python-dotenv" },
 ]
 
@@ -705,6 +706,7 @@ requires-dist = [
     { name = "langchain-core", specifier = ">=1.0" },
     { name = "langchain-ollama", specifier = ">=1.0" },
     { name = "ollama", specifier = ">=0.6" },
+    { name = "pydantic", specifier = ">=2" },
     { name = "python-dotenv", specifier = ">=1.0" },
 ]
 
