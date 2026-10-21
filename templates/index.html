@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AI Support Assistant</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <h1>AI Support Assistant</h1>
+    <p>Runs locally with Ollama · {{ models | length }} models</p>
+  </header>
+
+  <main class="layout">
+    <!-- Left: the customer's message and the model to use -->
+    <section class="panel" aria-labelledby="input-title">
+      <h2 id="input-title">Customer message</h2>
+
+      <form id="ticket-form">
+        <label class="visually-hidden" for="message">Customer message</label>
+        <textarea id="message" name="message" rows="9" maxlength="4000" required
+                  placeholder="Paste the customer's email or chat message here"></textarea>
+        <div class="row between">
+          <div class="samples" aria-label="Sample messages">
+            <button type="button" class="chip" data-sample="charge">Double charge</button>
+            <button type="button" class="chip" data-sample="package">Missing package</button>
+            <button type="button" class="chip" data-sample="happy">Happy customer</button>
+          </div>
+          <span id="counter" class="muted">0 / 4000</span>
+        </div>
+
+        <fieldset class="models">
+          <legend>Model</legend>
+          {% for name, tag in models.items() %}
+          <label class="model-option">
+            <input type="radio" name="model" value="{{ name }}" {% if loop.first %}checked{% endif %}>
+            <span><strong>{{ name | capitalize }}</strong><small>{{ tag }}</small></span>
+          </label>
+          {% endfor %}
+        </fieldset>
+
+        <button id="submit" type="submit" class="primary">Analyze message</button>
+        <p class="muted hint">Ctrl + Enter also works. The first request to a model
+          takes longer while it loads into memory.</p>
+      </form>
+    </section>
+
+    <!-- Right: the result, filled in by app.js -->
+    <section class="panel" aria-labelledby="result-title" aria-live="polite">
+      <h2 id="result-title">Analysis</h2>
+
+      <p id="empty" class="muted">Choose a sample or paste a message, then select Analyze.</p>
+      <p id="loading" class="muted" hidden>Reading the message…</p>
+      <div id="error" class="alert" role="alert" hidden></div>
+
+      <div id="result" hidden>
+        <div class="sentiment">
+          <div class="row between">
+            <span class="label">Sentiment</span>
+            <span><strong id="sentiment-value"></strong> / 100 · <span id="sentiment-label"></span></span>
+          </div>
+          <div class="meter"><div id="sentiment-bar"></div></div>
+        </div>
+
+        <h3 class="label">Summary</h3>
+        <p id="summary"></p>
+
+        <div class="row between label-row">
+          <h3 class="label">Suggested reply</h3>
+          <button id="copy" type="button" class="link">Copy</button>
+        </div>
+        <blockquote id="response"></blockquote>
+
+        <h3 class="label">Next action for the support team</h3>
+        <p id="next-action" class="action"></p>
+
+        <p id="meta" class="muted"></p>
+      </div>
+    </section>
+  </main>
+
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

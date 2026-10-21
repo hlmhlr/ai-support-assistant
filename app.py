@@ -1,7 +1,8 @@
-"""JSON API for the support assistant.
+"""Web page and JSON API for the support assistant.
 
-Replaces the lab's `app.py`. POST /generate takes a customer message and a
-model name and returns the summary, sentiment, reply and next action.
+Replaces the lab's `app.py`. GET / serves the page. POST /generate takes a
+customer message and a model name and returns the summary, sentiment, reply
+and next action.
 
 Changes from the lab:
 - One status code per kind of problem, so the caller knows what went wrong:
@@ -18,7 +19,7 @@ import time
 
 import httpx
 import ollama
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, render_template, request
 
 from support_assistant.config import MODELS
 from support_assistant.model import StructuredOutputError, get_structured_response
@@ -36,6 +37,13 @@ def error(message: str, status: int, **details):
 def create_app(responder=get_structured_response) -> Flask:
     """Build the Flask app. `responder(model, message)` must return an AIResponse."""
     app = Flask(__name__)
+
+    @app.get("/")
+    def index():
+        # The page lists the models from config, so a new model appears automatically.
+        return render_template("index.html", models=MODELS)
+
+
 
     @app.post("/generate")
     def generate():
