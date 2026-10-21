@@ -9,12 +9,18 @@ two changes:
   own template a second time. Raw mode sends the prompt exactly as written.
 """
 
+import json
+from langchain_core.exceptions import OutputParserException
+
 from langchain_core.language_models import BaseLanguageModel
 from langchain_core.output_parsers import JsonOutputParser
 
 from langchain_core.prompts import PromptTemplate
 from langchain_core.runnables import Runnable
 from langchain_ollama import OllamaLLM
+
+from pydantic import ValidationError
+
 
 from support_assistant.config import OLLAMA_BASE_URL
 from support_assistant.llm import model_tag, to_ollama_options
@@ -90,18 +96,59 @@ def build_json_chain(name: str, llm: BaseLanguageModel | Runnable | None = None)
     return build_template(name) | model | json_parser
 
 
+class StructuredOutputError(Exception):
+    """The model's answer could not be used, even after one retry."""
+
+    def __init__(self, model: str, problem: str, raw_output: str):
+        super().__init__(f"{model} did not return a usable answer: {problem}")
+        self.model = model
+        self.problem = problem
+        self.raw_output = raw_output  # kept for logging and debugging
+
+
+def describe_validation_error(error: ValidationError) -> str:
+    """Short, readable list of what is wrong, e.g. 'sentiment: must be <= 100'."""
+    problems = []
+    for item in error.errors():
+        field = ".".join(str(part) for part in item["loc"]) or "answer"
+        problems.append(f"{field}: {item['msg']}")
+    return "; ".join(problems)
+
+
+
 def get_structured_response(
     name: str,
     user_prompt: str,
     system_prompt: str = SUPPORT_SYSTEM_PROMPT,
     llm: BaseLanguageModel | Runnable | None = None,
-) -> dict:
-    """Ask for a JSON answer with the AIResponse fields and return it as a dict.
-
+) -> AIResponse:
+    """Ask for a JSON answer, check it against AIResponse, and retry once if needed.
     The parser's format instructions (a description of the JSON fields) are
     added to the system turn, as the lab does with {format_prompt}. They are
     passed as a value, so the braces in them are not read as placeholders.
+    
+    With greedy decoding the same prompt gives the same answer, so the retry
+    tells the model what was wrong with its first answer.
+
     """
+    chain = build_json_chain(name, llm)
     system = f"{system_prompt}\n\n{json_parser.get_format_instructions()}"
-    return build_json_chain(name, llm).invoke({"system": system, "user": user_prompt})
+    user = user_prompt
+
+    for attempt in (1, 2):
+        try:
+            data = chain.invoke({"system": system, "user": user})
+            return AIResponse.model_validate(data)
+        except OutputParserException as error:
+            problem = "the answer was not valid JSON"
+            raw_output = error.llm_output or ""
+        except ValidationError as error:
+            problem = describe_validation_error(error)
+            raw_output = json.dumps(data)
+
+        user = (
+            f"{user_prompt}\n\n"
+            f"Your previous answer could not be used ({problem}):\n{raw_output}\n"
+            "Answer again with only the JSON object, with every field filled in."
+        )
 
