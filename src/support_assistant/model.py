@@ -10,6 +10,7 @@ two changes:
 """
 
 import json
+from dataclasses import dataclass
 from langchain_core.exceptions import OutputParserException
 
 from langchain_core.language_models import BaseLanguageModel
@@ -116,12 +117,20 @@ def describe_validation_error(error: ValidationError) -> str:
 
 
 
-def get_structured_response(
+@dataclass
+class StructuredResult:
+    """A checked answer and how many attempts it took (1, or 2 after a retry)."""
+
+    response: AIResponse
+    attempts: int
+
+
+def get_structured_result(
     name: str,
     user_prompt: str,
     system_prompt: str = SUPPORT_SYSTEM_PROMPT,
     llm: BaseLanguageModel | Runnable | None = None,
-) -> AIResponse:
+) -> StructuredResult:
     """Ask for a JSON answer, check it against AIResponse, and retry once if needed.
     The parser's format instructions (a description of the JSON fields) are
     added to the system turn, as the lab does with {format_prompt}. They are
@@ -138,7 +147,7 @@ def get_structured_response(
     for attempt in (1, 2):
         try:
             data = chain.invoke({"system": system, "user": user})
-            return AIResponse.model_validate(data)
+            return StructuredResult(AIResponse.model_validate(data), attempt)
         except OutputParserException as error:
             problem = "the answer was not valid JSON"
             raw_output = error.llm_output or ""
@@ -153,3 +162,13 @@ def get_structured_response(
         )
 
     raise StructuredOutputError(name, problem, raw_output)
+
+
+def get_structured_response(
+    name: str,
+    user_prompt: str,
+    system_prompt: str = SUPPORT_SYSTEM_PROMPT,
+    llm: BaseLanguageModel | Runnable | None = None,
+) -> AIResponse:
+    """The checked answer only; used by the web app."""
+    return get_structured_result(name, user_prompt, system_prompt, llm).response

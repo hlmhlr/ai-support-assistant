@@ -1,0 +1,13 @@
+id,expected_sentiment,product_question,message
+double_charge,negative,no,"This is the second time you've charged my card twice for the same order (#48213). I want my money back today or I'm cancelling my subscription."
+missing_package,negative,no,"My package was marked as delivered yesterday, but it is not at my door and my neighbours have not seen it. Tracking number 1Z999AA10123456784."
+two_addresses,positive,yes,"The new app update is great, the checkout is much faster now! Is there a way to save two delivery addresses?"
+password_reset,negative,no,"I've asked for a password reset three times and the email never arrives. Now I can't log in to pay my bill before the deadline."
+wrong_size,neutral,no,"I received order #51877 but the shoes are size 42 instead of 43. How do I exchange them?"
+thanks_agent,positive,no,"Many thanks to Maria from your chat team, she sorted out my billing problem in five minutes. Great service!"
+cancel_plan,neutral,no,"Please cancel my subscription at the end of this month. My account email is j.rossi@example.com."
+app_crash,negative,no,"Your app crashes every time I open my order history on Android 14. It started after yesterday's update and it's really annoying."
+sunday_delivery,neutral,yes,"Do you deliver on Sundays in Milan? I'd like to send a birthday gift to my mother."
+late_refund,negative,no,"I returned order #50211 three weeks ago and I still haven't received my refund. This is unacceptable."
+student_discount,neutral,yes,"Is the student discount also valid on items that are already on sale?"
+broken_mug,neutral,no,"Delivery was quick, thanks, but one of the two mugs in order #49930 arrived broken. What should I do?"

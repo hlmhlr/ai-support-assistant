@@ -15,6 +15,7 @@ from support_assistant.model import (
     StructuredOutputError,
     get_ai_response,
     get_structured_response,
+    get_structured_result,
     initialize_model,
 )
 
@@ -100,3 +101,12 @@ def test_error_after_two_bad_answers_keeps_the_raw_output():
 
     assert caught.value.problem == "the answer was not valid JSON"
     assert caught.value.raw_output == "Still no JSON."
+
+
+def test_structured_result_counts_the_attempts():
+    first = get_structured_result("granite", "Hi", llm=FakeListLLM(responses=[GOOD_JSON]))
+    retried = get_structured_result("granite", "Hi", llm=FakeListLLM(responses=["no", GOOD_JSON]))
+
+    assert first.attempts == 1
+    assert retried.attempts == 2
+    assert retried.response.sentiment == 25
