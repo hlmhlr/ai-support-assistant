@@ -1,4 +1,4 @@
-"""Connect LangChain to the local Ollama models.
+"""Connect to the local Ollama models.
 
 Replaces the lab's `ModelInference` and `ChatWatsonx` setup. The models run
 on local computer through Ollama instead of IBM's cloud.
@@ -97,10 +97,43 @@ def generate_text(
         options=to_ollama_options(params),
     )
 
-    # Ollama reports durations in nanoseconds; divide by 1e9 to get seconds.
+    return _to_result(name, response.response, response)
+
+    
+def chat_text(
+    name: str,
+    system: str,
+    user: str,
+    params: dict | None = None,
+    client: ollama.Client | None = None,
+) -> GenerationResult:
+    """Send a system and a user message; Ollama adds the special tokens itself.
+
+    This is how chat models are normally called. Comparing it with
+    generate_text(format_prompt(...)) checks our hand-written templates.
+    """
+    client = client or ollama.Client(host=OLLAMA_BASE_URL)
+    response = client.chat(
+        model=model_tag(name),
+        messages=[
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ],
+        options=to_ollama_options(params),
+    )
+    return _to_result(name, response.message.content or "", response)
+
+
+def _to_result(name: str, text: str, response) -> GenerationResult:
+    """Build a GenerationResult from an Ollama generate or chat response.
+
+    Ollama reports durations in nanoseconds; divide by 1e9 to get seconds.
+    """
+
+
     return GenerationResult(
         model=name,
-        text=response.response.strip(),
+        text=text.strip(),
         output_tokens=response.eval_count or 0,
         load_seconds=(response.load_duration or 0) / 1e9,
         total_seconds=(response.total_duration or 0) / 1e9,
@@ -112,7 +145,7 @@ def get_chat_model(name: str, params: dict | None = None) -> ChatOllama:
 
 
     return ChatOllama(
-        model=MODELS[name],
+        model=model_tag(name),
         base_url=OLLAMA_BASE_URL,
         **to_ollama_options(params),
     )
