@@ -10,13 +10,34 @@ two changes:
 """
 
 from langchain_core.language_models import BaseLanguageModel
+from langchain_core.output_parsers import JsonOutputParser
+
 from langchain_core.prompts import PromptTemplate
 from langchain_core.runnables import Runnable
 from langchain_ollama import OllamaLLM
 
 from support_assistant.config import OLLAMA_BASE_URL
 from support_assistant.llm import model_tag, to_ollama_options
+from support_assistant.schemas import AIResponse
 from support_assistant.templates import TEMPLATES
+
+# Turns the model's text answer into a Python dict, as in the lab.
+json_parser = JsonOutputParser(pydantic_object=AIResponse)
+
+# Instructions for the support task. The rules come from the replies in
+# script 04: promises, claimed actions and placeholders.
+SUPPORT_SYSTEM_PROMPT = """You are an AI assistant helping a customer support team.
+Read the customer's message and fill in every field.
+Rules for the reply to the customer:
+- Be polite and brief (under 80 words).
+- Do not promise refunds, replacements or compensation.
+- Do not say that you have already done something.
+- Do not use placeholders such as [Name].
+Put what the support team must do in next_action, not in the reply."""
+
+# A JSON answer with four fields is longer than a plain reply, and an answer
+# cut off by the token limit is not valid JSON. 512 leaves room for both.
+STRUCTURED_PARAMS = {"max_new_tokens": 512}
 
 
 def initialize_model(name: str, params: dict | None = None) -> Runnable:
@@ -61,3 +82,26 @@ def get_ai_response(
     chain = build_chain(name, llm)
     answer = chain.invoke({"system": system_prompt, "user": user_prompt})
     return answer.strip()
+
+
+def build_json_chain(name: str, llm: BaseLanguageModel | Runnable | None = None) -> Runnable:
+    """The lab's chain with JSON output: template | model | json_parser."""
+    model = llm or initialize_model(name, STRUCTURED_PARAMS)
+    return build_template(name) | model | json_parser
+
+
+def get_structured_response(
+    name: str,
+    user_prompt: str,
+    system_prompt: str = SUPPORT_SYSTEM_PROMPT,
+    llm: BaseLanguageModel | Runnable | None = None,
+) -> dict:
+    """Ask for a JSON answer with the AIResponse fields and return it as a dict.
+
+    The parser's format instructions (a description of the JSON fields) are
+    added to the system turn, as the lab does with {format_prompt}. They are
+    passed as a value, so the braces in them are not read as placeholders.
+    """
+    system = f"{system_prompt}\n\n{json_parser.get_format_instructions()}"
+    return build_json_chain(name, llm).invoke({"system": system, "user": user_prompt})
+
