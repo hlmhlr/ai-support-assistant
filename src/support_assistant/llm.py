@@ -57,18 +57,24 @@ class GenerationResult:
     output_tokens: int    # how many tokens the model generated
     load_seconds: float   # time spent loading the model into memory
     total_seconds: float  # total time of the call, including loading
+    eval_seconds: float   # time spent generating the output tokens only
+
 
     @property
     def generation_seconds(self) -> float:
-        """Time spent answering, without loading the model."""
+        """Time the user waits for the answer: reading the prompt plus writing the answer."""
         return self.total_seconds - self.load_seconds
 
     @property
     def tokens_per_second(self) -> float:
-        """Generation speed. Measured locally instead of the lab's price per token."""
-        if self.generation_seconds <= 0:
+        """Generation speed. Measured locally instead of the lab's price per token.
+
+        Uses eval_seconds, not generation_seconds: for a 2-token answer, reading
+        the prompt takes most of the time and would make the model look slow.
+        """
+        if self.eval_seconds <= 0:
             return 0.0
-        return self.output_tokens / self.generation_seconds
+        return self.output_tokens / self.eval_seconds
 
 
 def generate_text(
@@ -98,8 +104,11 @@ def generate_text(
         output_tokens=response.eval_count or 0,
         load_seconds=(response.load_duration or 0) / 1e9,
         total_seconds=(response.total_duration or 0) / 1e9,
+        eval_seconds=(response.eval_duration or 0) / 1e9,
     )
 
+def get_chat_model(name: str, params: dict | None = None) -> ChatOllama:
+    """Create a LangChain chat model for "granite", "llama" or "mistral"."""
 
 
     return ChatOllama(

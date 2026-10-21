@@ -35,6 +35,10 @@ for name in MODELS:
         print(f"--- {name} / {prompt_id} ---")
         print(result.text, "\n")
 
+# answer s = what the user waits (reading the prompt + writing the answer).
+# tok/s    = writing speed only, so short and long answers can be compared.
+
+
 print(f"{'model':<8} {'prompt':<8} {'tokens':>6} {'answer s':>9} {'tok/s':>6} {'load s':>7}")
 for prompt_id, r in results:
     print(
